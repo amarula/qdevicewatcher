@@ -20,24 +20,14 @@
 #ifndef QDEVICEWATCHER_H
 #define QDEVICEWATCHER_H
 
+#include <qdevicewatcher_global.hpp>
+
 #include <QtCore/QEvent>
 #include <QtCore/QObject>
 
-#ifdef BUILD_QDEVICEWATCHER_STATIC
-#define Q_DW_EXPORT
-#else
-#if defined(BUILD_QDEVICEWATCHER_LIB)
-#undef Q_DW_EXPORT
-#define Q_DW_EXPORT Q_DECL_EXPORT
-#else
-#undef Q_DW_EXPORT
-#define Q_DW_EXPORT //Q_DECL_IMPORT //only for vc?
-#endif
-#endif //BUILD_QDEVICEWATCHER_STATIC
-
 class QDeviceWatcherPrivate;
 
-class Q_DW_EXPORT QDeviceWatcher : public QObject
+class QDEVICEWATCHERSHARED_EXPORT QDeviceWatcher : public QObject
 {
     Q_OBJECT
     Q_DECLARE_PRIVATE(QDeviceWatcher)
@@ -61,7 +51,7 @@ protected:
     QDeviceWatcherPrivate *d_ptr;
 };
 
-class Q_DW_EXPORT QDeviceChangeEvent : public QEvent
+class QDEVICEWATCHERSHARED_EXPORT QDeviceChangeEvent : public QEvent
 {
 public:
     enum Action { Add, Remove, Change };
