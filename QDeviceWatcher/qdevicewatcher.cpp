@@ -20,6 +20,9 @@
 #include "qdevicewatcher.h"
 #include "qdevicewatcher_p.h"
 
+#include <QDebug>
+#include <QStorageInfo>
+
 QDeviceWatcher::QDeviceWatcher(QObject *parent)
     : QObject(parent)
     , running(false)
@@ -66,10 +69,32 @@ void QDeviceWatcher::appendEventReceiver(QObject *receiver)
     d->event_receivers.append(receiver);
 }
 
+static constexpr int kRetrieveMountPointsIntervallMs = 2500;
+
+QDeviceWatcherPrivate::QDeviceWatcherPrivate(QObject *parent)
+    :
+#if CONFIG_THREAD
+    QThread(parent)
+#else
+    QObject(parent)
+#endif //CONFIG_THREAD
+{
+    m_retrieveMountPointsTimer.setInterval(kRetrieveMountPointsIntervallMs);
+    connect(&m_retrieveMountPointsTimer,
+            &QTimer::timeout,
+            this,
+            &QDeviceWatcherPrivate::retrieveMountPoints);
+};
+
 void QDeviceWatcherPrivate::emitDeviceAdded(const QString &dev)
 {
     if (!QMetaObject::invokeMethod(watcher, "deviceAdded", Q_ARG(QString, dev)))
         qWarning("invoke deviceAdded failed");
+
+    m_deviceVec.append(Device{dev});
+    if (!m_retrieveMountPointsTimer.isActive()) {
+        m_retrieveMountPointsTimer.start();
+    }
 }
 
 void QDeviceWatcherPrivate::emitDeviceChanged(const QString &dev)
@@ -82,6 +107,13 @@ void QDeviceWatcherPrivate::emitDeviceRemoved(const QString &dev)
 {
     if (!QMetaObject::invokeMethod(watcher, "deviceRemoved", Q_ARG(QString, dev)))
         qWarning("invoke deviceRemoved failed");
+
+    const auto it = std::find_if(m_deviceVec.begin(), m_deviceVec.end(), [=](const auto &device) {
+        return dev == device.devPath;
+    });
+    if (it != m_deviceVec.end()) {
+        m_deviceVec.erase(it);
+    }
 }
 
 void QDeviceWatcherPrivate::emitDeviceAction(const QString &dev, const QString &action)
@@ -93,6 +125,49 @@ void QDeviceWatcherPrivate::emitDeviceAction(const QString &dev, const QString &
         emitDeviceRemoved(dev);
     else if (a == QLatin1String("change"))
         emitDeviceChanged(dev);
+}
+
+void QDeviceWatcherPrivate::retrieveMountPoints()
+{
+    auto missingPath = false;
+
+    const auto mountedVolumes = QStorageInfo::mountedVolumes();
+    auto devVecIt = m_deviceVec.begin();
+
+    while (devVecIt != m_deviceVec.end()) {
+        if (devVecIt->mountAttempt >= 3) {
+            Q_EMIT watcher->deviceMountFailed(devVecIt->devPath);
+            devVecIt = m_deviceVec.erase(devVecIt);
+            continue;
+        }
+        if (!devVecIt->mountPath.isEmpty()) {
+            ++devVecIt;
+            continue;
+        }
+
+        ++devVecIt->mountAttempt;
+
+        const auto it = std::find_if(mountedVolumes.begin(),
+                                     mountedVolumes.end(),
+                                     [&](const auto &storageInfo) {
+                                         return devVecIt->devPath == storageInfo.device();
+                                     });
+        if (it != mountedVolumes.end()) {
+            devVecIt->mountPath = it->rootPath();
+        }
+
+        if (devVecIt->mountPath.isEmpty()) {
+            missingPath = true;
+        } else {
+            Q_EMIT watcher->deviceMounted(devVecIt->devPath);
+        }
+
+        ++devVecIt;
+    }
+
+    if (!missingPath) {
+        m_retrieveMountPointsTimer.stop();
+    }
 }
 
 //const QEvent::Type  QDeviceChangeEvent::EventType = static_cast<QEvent::Type>(QEvent::registerEventType());

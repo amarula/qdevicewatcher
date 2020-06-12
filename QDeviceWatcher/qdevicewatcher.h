@@ -31,8 +31,9 @@ class QDEVICEWATCHERSHARED_EXPORT QDeviceWatcher : public QObject
 {
     Q_OBJECT
     Q_DECLARE_PRIVATE(QDeviceWatcher)
+
 public:
-    explicit QDeviceWatcher(QObject *parent = 0);
+    explicit QDeviceWatcher(QObject *parent = nullptr);
     ~QDeviceWatcher();
 
     bool start();
@@ -45,6 +46,8 @@ signals:
     void deviceAdded(const QString &dev);
     void deviceChanged(const QString &dev); //when umounting the device
     void deviceRemoved(const QString &dev);
+    void deviceMounted(const QString &mountPath);
+    void deviceMountFailed(const QString &dev);
 
 protected:
     bool running;

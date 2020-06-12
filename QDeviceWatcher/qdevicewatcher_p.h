@@ -52,6 +52,16 @@
 #include <QtCore/QList>
 #include <QtCore/QThread>
 
+#include <QTimer>
+#include <QVector>
+
+struct Device
+{
+    QString devPath{};
+    QString mountPath{};
+    uint mountAttempt{0};
+};
+
 class QDeviceWatcher;
 class QDeviceWatcherPrivate
 #if CONFIG_THREAD
@@ -62,16 +72,8 @@ class QDeviceWatcherPrivate
 {
     Q_OBJECT
 public:
-    QDeviceWatcherPrivate(QObject *parent = 0)
-        :
-#if CONFIG_THREAD
-        QThread(parent)
-#else
-        QObject(parent)
-#endif //CONFIG_THREAD
-    {
-        //init();
-    }
+    explicit QDeviceWatcherPrivate(QObject *parent = 0);
+
     ~QDeviceWatcherPrivate();
 
     void setWatcher(QDeviceWatcher *w) { watcher = w; }
@@ -88,6 +90,8 @@ public:
 
 private slots:
     void parseDeviceInfo();
+
+    void retrieveMountPoints();
 
 private:
     QDeviceWatcher *watcher;
@@ -117,6 +121,9 @@ private:
     volatile bool mStop;
     DASessionRef mSession;
 #endif //Q_OS_MAC
+
+    QVector<Device> m_deviceVec{};
+    QTimer m_retrieveMountPointsTimer{};
 };
 
 #endif // QDEVICEWATCHER_P_H
