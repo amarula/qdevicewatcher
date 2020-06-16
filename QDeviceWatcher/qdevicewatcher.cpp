@@ -159,7 +159,7 @@ void QDeviceWatcherPrivate::retrieveMountPoints()
         if (devVecIt->mountPath.isEmpty()) {
             missingPath = true;
         } else {
-            Q_EMIT watcher->deviceMounted(devVecIt->devPath);
+            Q_EMIT watcher->deviceMounted(devVecIt->mountPath);
         }
 
         ++devVecIt;
